@@ -1,0 +1,11 @@
+[
+  {
+    "id": "btn_example_1",
+    "label": "Daily Job",
+    "icon": "bi bi-calendar-check",
+    "color": "primary",
+    "notebooks": [],
+    "sequential": true,
+    "description": "Run daily analysis notebooks in sequence"
+  }
+]

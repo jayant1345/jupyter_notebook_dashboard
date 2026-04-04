@@ -1,0 +1,24 @@
+# Jupyter Notebook Dashboard — Python dependencies
+# Install: pip install -r requirements.txt
+
+# ── Core dashboard ──────────────────────────────────────
+dash>=2.14.0
+dash-bootstrap-components>=1.5.0
+plotly>=5.18.0
+
+# ── Notebook execution ──────────────────────────────────
+papermill>=2.5.0          # Preferred executor (progress + param injection)
+nbconvert>=7.10.0         # Fallback executor
+nbformat>=5.9.0
+ipykernel>=6.27.0
+jupyter>=1.0.0
+
+# ── Process management ──────────────────────────────────
+psutil>=5.9.7
+
+# ── Data handling ───────────────────────────────────────
+pandas>=2.1.0
+
+# ── Flask (bundled with Dash, but listed for clarity) ───
+Flask>=3.0.0
+Werkzeug>=3.0.0

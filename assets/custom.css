@@ -1,0 +1,288 @@
+/* ══════════════════════════════════════════════════════
+   Jupyter Notebook Dashboard  –  custom.css
+   ══════════════════════════════════════════════════════ */
+
+/* ── Base & variables ───────────────────────────────── */
+:root {
+  --sidebar-width: 220px;
+  --header-height: 56px;
+  --log-height: 260px;
+  --transition: 0.25s ease;
+
+  /* Light palette */
+  --bg-main: #f4f6fb;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --text-main: #212529;
+  --text-muted: #6c757d;
+  --border-color: #dee2e6;
+  --table-hover: #f0f4ff;
+  --log-bg: #1e1e2e;
+  --log-text: #cdd6f4;
+}
+
+/* Dark mode overrides */
+.dark-mode {
+  --bg-main: #0f1117;
+  --bg-sidebar: #161b22;
+  --bg-card: #1c2026;
+  --text-main: #e6edf3;
+  --text-muted: #8b949e;
+  --border-color: #30363d;
+  --table-hover: #21262d;
+}
+
+/* ── App wrapper ────────────────────────────────────── */
+.app-wrapper {
+  min-height: 100vh;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  transition: background-color var(--transition), color var(--transition);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Top navbar ─────────────────────────────────────── */
+.top-navbar {
+  border-radius: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+/* ── Sidebar ─────────────────────────────────────────── */
+.sidebar {
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  transition: background-color var(--transition);
+  scrollbar-width: thin;
+}
+
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
+
+.sidebar-header {
+  min-height: 57px;
+  border-color: var(--border-color) !important;
+}
+
+.sidebar-nav-link {
+  color: var(--text-main) !important;
+  border-radius: 6px !important;
+  margin-bottom: 2px;
+  transition: background var(--transition);
+  font-size: 0.875rem;
+}
+
+.sidebar-nav-link:hover {
+  background: rgba(99, 110, 255, 0.1) !important;
+}
+
+.sidebar-nav-link.active {
+  background: rgba(99, 110, 255, 0.18) !important;
+  color: #636eff !important;
+  font-weight: 600;
+}
+
+/* ── Mini summary cards ─────────────────────────────── */
+.card {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  transition: background-color var(--transition);
+}
+
+.card-header {
+  background-color: transparent !important;
+  border-color: var(--border-color) !important;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+/* ── Toolbar card ────────────────────────────────────── */
+.toolbar-card .card-body {
+  padding: 0.5rem 0.75rem;
+}
+
+/* ── Upload zone ─────────────────────────────────────── */
+.upload-zone {
+  border: 2px dashed var(--border-color) !important;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color var(--transition), background-color var(--transition);
+  min-height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-zone:hover {
+  border-color: #636eff !important;
+  background-color: rgba(99, 110, 255, 0.04);
+}
+
+/* ── Notebooks table ─────────────────────────────────── */
+.table-container {
+  overflow-x: auto;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.table-container::-webkit-scrollbar { height: 6px; width: 6px; }
+.table-container::-webkit-scrollbar-track { background: transparent; }
+.table-container::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+
+.notebooks-table th {
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-card);
+  z-index: 1;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border-color);
+  padding: 0.5rem 0.75rem;
+  white-space: nowrap;
+}
+
+.notebooks-table td {
+  padding: 0.5rem 0.75rem;
+  vertical-align: middle;
+  border-color: var(--border-color);
+  font-size: 0.875rem;
+}
+
+.notebooks-table tr {
+  transition: background var(--transition);
+}
+
+.notebooks-table tr:hover {
+  background-color: var(--table-hover) !important;
+}
+
+/* Status row colouring */
+.status-running  { border-left: 3px solid #ffc107; }
+.status-completed { border-left: 3px solid #198754; }
+.status-failed   { border-left: 3px solid #dc3545; }
+.status-idle     { border-left: 3px solid transparent; }
+.status-stopped  { border-left: 3px solid #6c757d; }
+
+.nb-name {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ── Status badges ───────────────────────────────────── */
+.status-badge {
+  font-size: 0.72rem;
+  padding: 0.3em 0.6em;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+}
+
+/* ── Log window ──────────────────────────────────────── */
+.log-panel {
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.log-window {
+  background-color: var(--log-bg);
+  color: var(--log-text);
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  height: var(--log-height);
+  overflow-y: auto;
+  overflow-x: auto;
+  padding: 1rem;
+  margin: 0;
+  border-radius: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  scrollbar-width: thin;
+  scrollbar-color: #3d4455 transparent;
+}
+
+.log-window::-webkit-scrollbar { width: 6px; }
+.log-window::-webkit-scrollbar-track { background: transparent; }
+.log-window::-webkit-scrollbar-thumb { background: #3d4455; border-radius: 3px; }
+
+/* ── Custom button cards ─────────────────────────────── */
+.custom-btn-card {
+  transition: box-shadow var(--transition);
+}
+
+.custom-btn-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+/* ── Progress bars ───────────────────────────────────── */
+.progress {
+  background-color: var(--border-color);
+}
+
+/* ── Scrollable main column ─────────────────────────── */
+.main-col {
+  height: 100vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.main-col::-webkit-scrollbar { width: 6px; }
+.main-col::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+
+/* ── Dark mode table colours ────────────────────────── */
+.dark-mode .table {
+  color: var(--text-main);
+  border-color: var(--border-color);
+}
+
+.dark-mode .table-hover > tbody > tr:hover {
+  background-color: var(--table-hover);
+  color: var(--text-main);
+}
+
+/* ── Dark mode form inputs ───────────────────────────── */
+.dark-mode .form-control,
+.dark-mode .form-select {
+  background-color: #21262d;
+  color: var(--text-main);
+  border-color: var(--border-color);
+}
+
+.dark-mode .form-control::placeholder { color: var(--text-muted); }
+
+/* ── Dark mode nav active flash fix ─────────────────── */
+.dark-mode .nav-pills .nav-link.active {
+  background-color: rgba(99, 110, 255, 0.25) !important;
+}
+
+/* ── Responsive adjustments ──────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
+}
+
+/* ── Animations ──────────────────────────────────────── */
+@keyframes pulse-border {
+  0%   { border-left-color: #ffc107; }
+  50%  { border-left-color: #ffda6a; }
+  100% { border-left-color: #ffc107; }
+}
+
+.status-running {
+  animation: pulse-border 1.5s ease-in-out infinite;
+}
+
+/* ── Toast ───────────────────────────────────────────── */
+.dash-toast-header { font-weight: 600; }
+
+/* ── Utility ─────────────────────────────────────────── */
+.text-muted { color: var(--text-muted) !important; }
+hr { border-color: var(--border-color); opacity: 1; }
