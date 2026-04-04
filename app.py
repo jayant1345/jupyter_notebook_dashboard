@@ -1259,13 +1259,11 @@ if __name__ == "__main__":
     # Start process watchdog
     process_mgr.start_watchdog(runner)
 
-    print(f"""
-╔══════════════════════════════════════════════╗
-║       Jupyter Notebook Dashboard             ║
-║  URL: http://{args.host}:{args.port:<28} ║
-║  Press Ctrl+C to stop                        ║
-╚══════════════════════════════════════════════╝
-""")
+    print("=" * 50)
+    print("  Jupyter Notebook Dashboard")
+    print(f"  URL: http://{args.host}:{args.port}")
+    print("  Press Ctrl+C to stop")
+    print("=" * 50)
 
     app.run(
         host=args.host,
