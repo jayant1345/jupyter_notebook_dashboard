@@ -233,24 +233,42 @@ class NotebookRunner:
 
         with open(log_file, "w", encoding="utf-8") as log:
             self._log(log, f"Starting: {Path(nb_path).name}")
-            self._log(log, f"Engine  : papermill")
+            self._log(log, "Engine  : papermill")
             self._log(log, f"Cells   : {total_cells} code cells")
             self._log(log, "-" * 60)
 
-            cell_counter = {"n": 0}
-            runner_ref = self
+            # Poll the output notebook file every second to track per-cell progress.
+            # papermill writes execution_count to each cell as it completes, so we
+            # count non-None execution_count values to derive real-time progress.
+            stop_polling = threading.Event()
 
-            class _CellCallback:
-                def __call__(self, nb, cell_idx, **_kw):
-                    cell_counter["n"] += 1
-                    n = cell_counter["n"]
-                    pct = int(n / max(total_cells, 1) * 100)
-                    runner_ref._log(log, f"Cell {n}/{total_cells}  [{pct}%]")
-                    with runner_ref._lock:
-                        s = runner_ref._states.get(nb_path)
-                        if s:
-                            s["current_cell"] = n
-                            s["progress"] = pct
+            def _poll_progress():
+                last_count = 0
+                while not stop_polling.is_set():
+                    try:
+                        if Path(output_nb).exists():
+                            with open(output_nb, "r", encoding="utf-8") as f:
+                                out_nb = json.load(f)
+                            executed = sum(
+                                1 for c in out_nb.get("cells", [])
+                                if c.get("cell_type") == "code"
+                                and c.get("execution_count") is not None
+                            )
+                            if executed != last_count:
+                                pct = int(executed / max(total_cells, 1) * 100)
+                                self._log(log, f"Cell {executed}/{total_cells}  [{pct}%]")
+                                with self._lock:
+                                    s = self._states.get(nb_path)
+                                    if s:
+                                        s["current_cell"] = executed
+                                        s["progress"] = pct
+                                last_count = executed
+                    except Exception:
+                        pass
+                    stop_polling.wait(1.0)
+
+            poll_thread = threading.Thread(target=_poll_progress, daemon=True)
+            poll_thread.start()
 
             try:
                 pm.execute_notebook(
@@ -265,6 +283,9 @@ class NotebookRunner:
                 self._mark_completed(nb_path, log)
             except Exception as exc:
                 raise exc
+            finally:
+                stop_polling.set()
+                poll_thread.join(timeout=2)
 
     def _run_nbconvert(self, nb_path: str, log_file: str, timeout: int):
         cmd = [
