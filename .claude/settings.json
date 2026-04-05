@@ -8,7 +8,10 @@
       "Bash(echo \"PID: $!\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8050/)",
       "Bash(python -c \"from utils.notebook_runner import runner; print\\('Import OK'\\)\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8050)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8050)",
+      "Bash(python -c \"import app; print\\('Import OK'\\)\")",
+      "Bash(python -c \"from utils.dashboard_manager import dashboard_mgr; print\\('DashboardManager OK'\\); print\\('Dashboards:', dashboard_mgr.list_dashboards\\(\\)\\)\")",
+      "Bash(tasklist)"
     ]
   }
 }

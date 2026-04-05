@@ -35,6 +35,7 @@ from flask import jsonify, request
 # ── Local imports ──────────────────────────────────────────────────────────────
 from utils.notebook_runner import runner, execution_history, NOTEBOOKS_DIR, LOGS_DIR
 from utils.process_manager import process_mgr
+from utils.dashboard_manager import dashboard_mgr
 
 BASE_DIR = Path(__file__).parent
 CONFIG_DIR = BASE_DIR / "config"
@@ -178,6 +179,9 @@ def _sidebar():
                                     href="#", id="nav-processes", className="sidebar-nav-link"),
                         dbc.NavLink([html.I(className="bi bi-clock-history me-2"), "History"],
                                     href="#", id="nav-history", className="sidebar-nav-link"),
+                        dbc.NavLink([html.I(className="bi bi-layout-text-window-reverse me-2"),
+                                     "Dashboards"],
+                                    href="#", id="nav-dashboards", className="sidebar-nav-link"),
                     ],
                     vertical=True,
                     pills=True,
@@ -442,6 +446,54 @@ def _history_tab():
     ])
 
 
+def _dashboard_launcher_tab():
+    return html.Div([
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardHeader([
+                        html.I(className="bi bi-plus-circle me-2"),
+                        "Register Dashboard",
+                    ]),
+                    dbc.CardBody([
+                        dbc.Label("Name"),
+                        dbc.Input(id="dash-reg-name", placeholder="e.g. Sales Dashboard",
+                                  type="text"),
+                        dbc.Label("Script Path (.py)", className="mt-2"),
+                        dbc.Input(id="dash-reg-path",
+                                  placeholder="C:/path/to/dashboard.py",
+                                  type="text"),
+                        dbc.Label("Port", className="mt-2"),
+                        dbc.Input(id="dash-reg-port", type="number",
+                                  placeholder="8051", min=1024, max=65535),
+                        dbc.Label("Description (optional)", className="mt-2"),
+                        dbc.Input(id="dash-reg-desc",
+                                  placeholder="What does this dashboard show?",
+                                  type="text"),
+                        dbc.Button(
+                            [html.I(className="bi bi-plus-lg me-1"), "Register"],
+                            id="btn-dash-register", color="primary", className="mt-3 w-100",
+                        ),
+                        html.Div(id="dash-register-status", className="mt-2"),
+                    ]),
+                ]),
+            ], width=4),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardHeader([
+                        html.I(className="bi bi-layout-text-window-reverse me-2"),
+                        "Live Dashboards",
+                        dbc.Badge("0", id="dash-count-badge", color="primary",
+                                  className="ms-2"),
+                    ], className="d-flex align-items-center"),
+                    dbc.CardBody(html.Div(id="dashboard-table-container",
+                                         children="No dashboards registered yet.")),
+                ]),
+            ], width=8),
+        ]),
+    ])
+
+
 def _log_panel():
     return dbc.Card([
         dbc.CardHeader([
@@ -558,10 +610,11 @@ def update_clock(_):
     Input("nav-buttons", "n_clicks"),
     Input("nav-processes", "n_clicks"),
     Input("nav-history", "n_clicks"),
+    Input("nav-dashboards", "n_clicks"),
     State("store-active-tab", "data"),
     prevent_initial_call=False,
 )
-def switch_tab(nb_clicks, btn_clicks, proc_clicks, hist_clicks, current_tab):
+def switch_tab(nb_clicks, btn_clicks, proc_clicks, hist_clicks, dash_clicks, current_tab):
     ctx = callback_context
     if not ctx.triggered:
         return _notebooks_tab(), "notebooks"
@@ -571,6 +624,7 @@ def switch_tab(nb_clicks, btn_clicks, proc_clicks, hist_clicks, current_tab):
         "nav-buttons": ("buttons", _custom_buttons_tab()),
         "nav-processes": ("processes", _process_tab()),
         "nav-history": ("history", _history_tab()),
+        "nav-dashboards": ("dashboards", _dashboard_launcher_tab()),
     }
     tab_name, tab_content = mapping.get(trigger_id, ("notebooks", _notebooks_tab()))
     return tab_content, tab_name
@@ -650,7 +704,14 @@ def update_notebooks_table(_, _r, _up, _lf, folder_path, search):
         dbc.Col(_mini_card("Failed", failed, "bi-x-circle", "danger"), width=6),
     ], className="g-1")
 
-    options = [{"label": n["name"], "value": n["path"]} for n in notebooks]
+    nb_options = [{"label": n["name"], "value": n["path"]} for n in notebooks]
+    # Also include registered dashboard logs in the selector
+    dash_options = [
+        {"label": f"[Dashboard] {d['name']}", "value": f"dash::{d['name']}"}
+        for d in dashboard_mgr.list_dashboards()
+    ]
+    separator = [{"label": "── Dashboards ──", "value": "__sep__", "disabled": True}] if dash_options else []
+    options = nb_options + separator + dash_options
     return rows, str(total), options, cards
 
 
@@ -844,12 +905,19 @@ def update_logs(_, clear_n, selected_dropdown, selected_store, _cleared):
         return "Logs cleared."
 
     nb_path = selected_dropdown or selected_store
-    if not nb_path:
-        return "Select a notebook to view its logs…"
+    if not nb_path or nb_path == "__sep__":
+        return "Select a notebook or dashboard to view its logs…"
 
-    lines = runner.get_log_lines(nb_path, last_n=300)
-    if not lines:
-        return f"No logs yet for {Path(nb_path).name}"
+    # Dashboard log
+    if nb_path.startswith("dash::"):
+        dash_name = nb_path[6:]
+        lines = dashboard_mgr.get_log_lines(dash_name, last_n=300)
+        if not lines:
+            return f"No logs yet for dashboard '{dash_name}'. Start it first."
+    else:
+        lines = runner.get_log_lines(nb_path, last_n=300)
+        if not lines:
+            return f"No logs yet for {Path(nb_path).name}"
 
     # Colour error lines red, warnings orange
     spans = []
@@ -876,11 +944,16 @@ def download_logs(n, selected_dropdown, selected_store):
     if not n:
         return no_update
     nb_path = selected_dropdown or selected_store
-    if not nb_path:
+    if not nb_path or nb_path == "__sep__":
         return no_update
-    lines = runner.get_log_lines(nb_path, last_n=10000)
+    if nb_path.startswith("dash::"):
+        dash_name = nb_path[6:]
+        lines = dashboard_mgr.get_log_lines(dash_name, last_n=10000)
+        filename = f"dash_{dash_name}_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    else:
+        lines = runner.get_log_lines(nb_path, last_n=10000)
+        filename = f"{Path(nb_path).stem}_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
     content = "".join(lines)
-    filename = f"{Path(nb_path).stem}_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
     return dcc.send_string(content, filename)
 
 
@@ -1157,6 +1230,172 @@ def update_history(_, clear_n):
         ],
         bordered=False, hover=True, responsive=True, size="sm",
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Dashboard Launcher callbacks
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _dash_status_badge(status: str):
+    colours = {"running": "success", "stopped": "secondary", "error": "danger"}
+    return dbc.Badge(status.capitalize(), color=colours.get(status, "secondary"),
+                     className="status-badge")
+
+
+def _dashboard_rows(dashboards: list) -> list:
+    rows = []
+    for d in dashboards:
+        name = d["name"]
+        status = d["status"]
+        pid = d["pid"]
+        port = d["port"]
+        desc = d.get("description", "")
+        url = f"http://localhost:{port}"
+        rows.append(html.Tr([
+            html.Td(html.Span([
+                html.I(className="bi bi-layout-text-window-reverse me-2 text-info"),
+                name,
+            ], className="fw-semibold")),
+            html.Td(port, className="text-muted small"),
+            html.Td(_dash_status_badge(status)),
+            html.Td(str(pid) if pid else "—", className="text-muted small"),
+            html.Td(desc, className="text-muted small"),
+            html.Td([
+                dbc.Button(html.I(className="bi bi-play-fill"), color="success", size="sm",
+                           id={"type": "btn-dash-start", "index": name},
+                           className="me-1", title="Start",
+                           disabled=status == "running"),
+                dbc.Button(html.I(className="bi bi-stop-fill"), color="danger", size="sm",
+                           id={"type": "btn-dash-stop", "index": name},
+                           className="me-1", title="Stop",
+                           disabled=status != "running"),
+                html.A(html.I(className="bi bi-box-arrow-up-right"), href=url, target="_blank",
+                       className="btn btn-sm btn-outline-info me-1", title=f"Open {url}"),
+                dbc.Button(html.I(className="bi bi-terminal"), color="info", size="sm",
+                           id={"type": "btn-dash-viewlog", "index": name},
+                           className="me-1", title="View Log"),
+                dbc.Button(html.I(className="bi bi-trash3"), color="warning", size="sm",
+                           id={"type": "btn-dash-delete", "index": name},
+                           title="Remove"),
+            ], className="d-flex flex-wrap gap-1"),
+        ], className=f"table-row status-{'running' if status == 'running' else 'idle'}"))
+    return rows
+
+
+@app.callback(
+    Output("dashboard-table-container", "children"),
+    Output("dash-count-badge", "children"),
+    Input("interval-fast", "n_intervals"),
+    prevent_initial_call=False,
+)
+def update_dashboard_table(_):
+    dashboards = dashboard_mgr.list_dashboards()
+    if not dashboards:
+        return "No dashboards registered yet. Use the form to register one.", "0"
+    rows = _dashboard_rows(dashboards)
+    table = dbc.Table(
+        [
+            html.Thead(html.Tr([
+                html.Th("Name"), html.Th("Port"), html.Th("Status"),
+                html.Th("PID"), html.Th("Description"), html.Th("Actions"),
+            ])),
+            html.Tbody(rows),
+        ],
+        bordered=False, hover=True, responsive=True, size="sm",
+        className="align-middle",
+    )
+    return table, str(len(dashboards))
+
+
+@app.callback(
+    Output("dash-register-status", "children"),
+    Input("btn-dash-register", "n_clicks"),
+    State("dash-reg-name", "value"),
+    State("dash-reg-path", "value"),
+    State("dash-reg-port", "value"),
+    State("dash-reg-desc", "value"),
+    prevent_initial_call=True,
+)
+def register_dashboard(n, name, path, port, desc):
+    if not n:
+        return no_update
+    if not name or not path or not port:
+        return dbc.Alert("Name, path, and port are required.", color="warning", dismissable=True)
+    ok, msg = dashboard_mgr.register(name, path, int(port), desc or "")
+    color = "success" if ok else "danger"
+    return dbc.Alert(msg, color=color, dismissable=True)
+
+
+@app.callback(
+    Output("toast-container", "children", allow_duplicate=True),
+    Input({"type": "btn-dash-start", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def start_dashboard(n_clicks_list):
+    ctx = callback_context
+    if not ctx.triggered or not any(n_clicks_list):
+        return no_update
+    prop = ctx.triggered[0]["prop_id"]
+    match = re.search(r'"index":"([^"]+)"', prop)
+    if not match:
+        return no_update
+    name = match.group(1)
+    ok, msg = dashboard_mgr.start(name)
+    return _toast(msg, "success" if ok else "danger")
+
+
+@app.callback(
+    Output("toast-container", "children", allow_duplicate=True),
+    Input({"type": "btn-dash-stop", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def stop_dashboard(n_clicks_list):
+    ctx = callback_context
+    if not ctx.triggered or not any(n_clicks_list):
+        return no_update
+    prop = ctx.triggered[0]["prop_id"]
+    match = re.search(r'"index":"([^"]+)"', prop)
+    if not match:
+        return no_update
+    name = match.group(1)
+    ok, msg = dashboard_mgr.stop(name)
+    return _toast(msg, "warning" if ok else "danger")
+
+
+@app.callback(
+    Output("toast-container", "children", allow_duplicate=True),
+    Input({"type": "btn-dash-delete", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def delete_dashboard(n_clicks_list):
+    ctx = callback_context
+    if not ctx.triggered or not any(n_clicks_list):
+        return no_update
+    prop = ctx.triggered[0]["prop_id"]
+    match = re.search(r'"index":"([^"]+)"', prop)
+    if not match:
+        return no_update
+    name = match.group(1)
+    ok = dashboard_mgr.unregister(name)
+    msg = f"Dashboard '{name}' removed." if ok else f"Could not remove '{name}'."
+    return _toast(msg, "warning" if ok else "danger")
+
+
+@app.callback(
+    Output("log-notebook-select", "value"),
+    Input({"type": "btn-dash-viewlog", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def view_dashboard_log(n_clicks_list):
+    ctx = callback_context
+    if not ctx.triggered or not any(n_clicks_list):
+        return no_update
+    prop = ctx.triggered[0]["prop_id"]
+    match = re.search(r'"index":"([^"]+)"', prop)
+    if not match:
+        return no_update
+    name = match.group(1)
+    return f"dash::{name}"
 
 
 # ── Toast helper ──────────────────────────────────────────────────────────────
